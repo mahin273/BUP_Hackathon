@@ -247,8 +247,8 @@ def _no_op(note_index: int, reason: str) -> DirectiveInterpretation:
 # Deterministic rule-based fallback
 # ---------------------------------------------------------------------------
 
-def _parse_time_token(token: str) -> Optional[int]:
-    """Parse time tokens like '1 PM', '13:00', '9am', 'noon', 'midnight', 'one' -> 0..23."""
+def _parse_time_token(token: str, is_end: bool = False) -> Optional[int]:
+    """Parse time tokens like '1 PM', '13:00', '9am', 'noon', 'midnight', 'one' -> 0..24."""
     _WORD_HOURS: dict[str, int] = {
         "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
         "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
@@ -257,7 +257,7 @@ def _parse_time_token(token: str) -> Optional[int]:
     if t == "noon":
         return 12
     if t == "midnight":
-        return 0
+        return 24 if is_end else 0
     if t in _WORD_HOURS:
         return _WORD_HOURS[t]
 
@@ -286,9 +286,18 @@ def _parse_time_token(token: str) -> Optional[int]:
 def _extract_time_window(text: str) -> Optional[list[int]]:
     """Return a sorted list of half-open hour integers from a time range in text."""
     _WORD = r"(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)"
-    _TIME = rf"(?:\d{{1,2}}(?::\d{{2}})?(?:\s*(?:am|pm))?|{_WORD}(?:\s*(?:am|pm))?)"
+    _TIME = rf"(?:\d{{1,2}}(?::\d{{2}})?(?:\s*(?:am|pm))?|{_WORD}(?:\s*(?:am|pm))?|noon|midnight)"
+
+    # Check for onwards pattern (e.g. "from 6 PM onwards")
+    m_on = re.search(rf"({_TIME})\s+onwards?", text, re.IGNORECASE)
+    if m_on:
+        s = _parse_time_token(m_on.group(1), is_end=False)
+        if s is not None and 0 <= s < 24:
+            return list(range(s, 24))
+
+    # Standard range patterns
     patterns = [
-        rf"(?:from|between)\s+({_TIME})\s+(?:to|until|and|-)\s+({_TIME})",
+        rf"(?:from|between|during\s+.*?|throughout\s+.*?)?\s*({_TIME})\s+(?:to|until|and|-)\s+({_TIME})",
         r"during\s+the\s+(\d{1,2})\s*-\s*(\d{1,2})\s*(am|pm)",
     ]
     for pat in patterns:
@@ -303,10 +312,14 @@ def _extract_time_window(text: str) -> Optional[list[int]]:
                 e = e + 12 if e < 12 else e
             start_h, end_h = s, e
         else:
-            start_h = _parse_time_token(groups[0])
-            end_h = _parse_time_token(groups[1])
-        if start_h is not None and end_h is not None and start_h < end_h:
-            return list(range(start_h, min(end_h, 24)))
+            start_h = _parse_time_token(groups[0], is_end=False)
+            end_h = _parse_time_token(groups[1], is_end=True)
+        if start_h is not None and end_h is not None:
+            if start_h < end_h:
+                return list(range(start_h, min(end_h, 24)))
+            elif start_h > end_h:
+                # Wraps around midnight (e.g., 11 PM to 2 AM -> [0, 1, 23])
+                return sorted(list(range(start_h, 24)) + list(range(0, end_h)))
     return None
 
 
@@ -371,7 +384,7 @@ def _rule_based_interpret(note: str, note_index: int) -> DirectiveInterpretation
             )
 
     # minimum_battery_reserve
-    reserve_kw = any(k in lower for k in ("reserve", "keep at least", "maintain at least", "minimum battery", "floor", "hold at least", "no lower than", "at least"))
+    reserve_kw = any(k in lower for k in ("reserve", "keep at least", "maintain at least", "minimum battery", "floor", "hold at least", "no lower than", "at least", "above", "keep", "maintain", "hold"))
     if reserve_kw:
         window = _extract_time_window(note)
         kwh_m = re.search(r"(\d+(?:\.\d+)?)\s*kwh", lower)

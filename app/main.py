@@ -101,6 +101,7 @@ async def optimize_energy(request: OptimizeRequest) -> OptimizeResponse:
         raw_directives=raw_directives,
         num_notes=len(request.operator_notes),
         battery_capacity=request.battery.capacity_kwh,
+        initial_battery_energy=request.battery.initial_energy_kwh,
     )
 
     # 3. Mathematical optimization

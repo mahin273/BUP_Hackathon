@@ -41,6 +41,7 @@ def sanitize_single_directive(
     item: DirectiveInterpretation | dict[str, Any],
     fallback_index: int,
     battery_capacity: Optional[float] = None,
+    initial_battery_energy: Optional[float] = None,
 ) -> DirectiveInterpretation:
     """Sanitizes a single directive interpretation entry, guaranteeing compliance.
     
@@ -143,11 +144,23 @@ def sanitize_single_directive(
             reserve = raw_reserve
             if battery_capacity is not None and reserve > battery_capacity:
                 reserve = battery_capacity
+
+            # Enforce neutrality compatibility: if reserve > initial_battery_energy,
+            # hour 23 cannot have reserve > initial_battery_energy because end-of-day
+            # neutrality requires E[23] == initial_battery_energy.
+            sanitized_reserve_hours = sanitized_hours
+            if initial_battery_energy is not None and reserve > initial_battery_energy:
+                filtered_hours = [h for h in sanitized_hours if h != 23]
+                if filtered_hours:
+                    sanitized_reserve_hours = filtered_hours
+                else:
+                    reserve = initial_battery_energy
+
             return DirectiveInterpretation(
                 note_index=note_idx,
                 applies=True,
                 directive_type="minimum_battery_reserve",
-                structured_adjustment={"hours": sanitized_hours, "minimum_energy_kwh": round(reserve, 4)},
+                structured_adjustment={"hours": sanitized_reserve_hours, "minimum_energy_kwh": round(reserve, 4)},
                 explanation=explanation or "Applied minimum battery reserve constraint.",
             )
 
@@ -210,6 +223,7 @@ def sanitize_directives(
     raw_directives: list[DirectiveInterpretation] | list[dict[str, Any]],
     num_notes: Optional[int] = None,
     battery_capacity: Optional[float] = None,
+    initial_battery_energy: Optional[float] = None,
 ) -> list[DirectiveInterpretation]:
     """Sanitizes an entire list of directive interpretations.
     
@@ -231,7 +245,12 @@ def sanitize_directives(
     # Sanitize each item
     sanitized_pool: list[DirectiveInterpretation] = []
     for idx, item in enumerate(raw_directives):
-        sanitized = sanitize_single_directive(item, fallback_index=idx, battery_capacity=battery_capacity)
+        sanitized = sanitize_single_directive(
+            item,
+            fallback_index=idx,
+            battery_capacity=battery_capacity,
+            initial_battery_energy=initial_battery_energy,
+        )
         sanitized_pool.append(sanitized)
 
     # Map by note_index, deduplicating
