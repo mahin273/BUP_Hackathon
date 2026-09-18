@@ -104,17 +104,24 @@ def _call_gemini(notes: list[str]) -> list[dict[str, Any]]:
     from google.genai import types as genai_types  # type: ignore[import-untyped]
 
     client = genai.Client(api_key=GEMINI_API_KEY)
-    response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=_build_user_prompt(notes),
-        config=genai_types.GenerateContentConfig(
-            system_instruction=_SYSTEM_PROMPT,
-            response_mime_type="application/json",
-            temperature=0.0,
-        ),
-    )
-    raw = response.text.strip()
-    return json.loads(raw)
+    last_err: Optional[Exception] = None
+    for model_name in ("gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"):
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=_build_user_prompt(notes),
+                config=genai_types.GenerateContentConfig(
+                    system_instruction=_SYSTEM_PROMPT,
+                    response_mime_type="application/json",
+                    temperature=0.0,
+                ),
+            )
+            raw = response.text.strip()
+            return json.loads(raw)
+        except Exception as e:
+            last_err = e
+            continue
+    raise last_err or RuntimeError("All Gemini models failed")
 
 
 def _call_groq(notes: list[str]) -> list[dict[str, Any]]:

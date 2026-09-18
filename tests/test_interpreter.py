@@ -151,5 +151,15 @@ def main() -> None:
         print("All tests passed.")
 
 
+import pytest
+
+
+@pytest.mark.parametrize("label,notes,expected", CASES)
+def test_interpreter_case(label: str, notes: list[str], expected: list[dict]) -> None:
+    results = interpret_notes(notes)
+    assert _check(label, results, expected), f"Failed test case: {label}"
+
+
 if __name__ == "__main__":
     main()
+
