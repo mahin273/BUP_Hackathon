@@ -1,0 +1,20 @@
+services:
+  gridwise:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gridwise-service
+    ports:
+      - "${HOST_PORT:-8001}:8000"
+    environment:
+      - PORT=8000
+      - HOST=0.0.0.0
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
