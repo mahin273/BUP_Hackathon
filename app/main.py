@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.guardrails import sanitize_directives
 from app.interpreter import interpret_notes
@@ -73,6 +73,12 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
             "message": "An unexpected error occurred while processing the energy schedule.",
         },
     )
+
+
+@app.get("/", include_in_schema=False)
+async def root() -> RedirectResponse:
+    """Redirect root endpoint to interactive Swagger documentation."""
+    return RedirectResponse(url="/docs")
 
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
