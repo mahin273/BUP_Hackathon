@@ -95,7 +95,7 @@ flowchart TD
 ### End-to-End Processing Pipeline:
 1. **Request Validation**: Enforces exact 24-hour continuous coverage ($h \in [0, 23]$), valid battery physical constants ($E_{\text{initial}} \le C$, $E_{\text{min}} \le C$), and 1–3 non-empty operator notes. Structurally invalid requests immediately return HTTP 400.
 2. **LLM Interpretation**: Converts natural-language notes into structured schemas. Operates in an isolated daemon thread with a strict 5.0-second timeout budget to eliminate latency spikes.
-3. **Guardrail Sanitization**: Deterministically cleanses LLM output. Sorts and dedupes hour arrays, clamps factors and reserve values, enforces half-open interval semantics ($[start, end)$), and downgrades invalid directives to $no\_op$ with an explanatory reason without throwing unhandled exceptions.
+3. **Guardrail Sanitization**: Deterministically cleanses LLM output. Sorts and dedupes hour arrays, clamps factors and reserve values, enforces half-open interval semantics ($[start, end)$), and downgrades invalid directives to `no-op` with an explanatory reason without throwing unhandled exceptions.
 4. **LP Cost Minimization**: Solves the 96-variable linear program using `scipy.optimize.linprog(method="highs")`. Implements infinitesimal tie-breaking penalties ($\pm 10^{-6}$) to eliminate simultaneous charge/discharge and prioritize free solar.
 5. **Replay Audit and Balance Correction**: Rounds hourly plan figures to 2 decimal places, performs micro-adjustments ($\pm 0.01$ kWh) on grid purchases to ensure exact balance after rounding, and recalculates aggregate totals directly from the rounded schedule.
 
@@ -110,14 +110,14 @@ $$\min \quad \sum_{h=0}^{23} \left( P_{\text{grid}}[h] \cdot \text{Tariff}[h] \r
 
 To eliminate physical degeneracies (e.g., simultaneous charging and discharging during hours with identical costs), an infinitesimal regularizer is included in the solver objective:
 
-$$\min \quad \sum_{h=0}^{23} \left( P_{\text{grid}}[h] \cdot \text{Tariff}[h] - 10^{-6} \cdot P_{\text{solar\_used}}[h] + 10^{-6} \cdot P_{\text{charge}}[h] + 10^{-6} \cdot P_{\text{discharge}}[h] \right)$$
+$$\min \quad \sum_{h=0}^{23} \left( P_{\text{grid}}[h] \cdot \text{Tariff}[h] - 10^{-6} \cdot P_{\text{solar}}[h] + 10^{-6} \cdot P_{\text{charge}}[h] + 10^{-6} \cdot P_{\text{discharge}}[h] \right)$$
 
 This regularizer guarantees that free solar is strictly prioritized over grid power and battery cycling is minimized, while preserving the exact BDT accounting.
 
 ### 3.2 Decision Variables (96 Total)
 For each hour $h \in [0, 23]$, four non-negative variables are defined:
 - $P_{\text{grid}}[h] \ge 0$: Grid electricity imported (kWh).
-- $P_{\text{solar\_used}}[h] \ge 0$: Solar power supplied to campus load or battery (kWh).
+- $P_{\text{solar}}[h] \ge 0$: Solar power supplied to campus load or battery (kWh).
 - $P_{\text{charge}}[h] \ge 0$: Energy stored into the battery (kWh).
 - $P_{\text{discharge}}[h] \ge 0$: Energy discharged from the battery (kWh).
 
@@ -125,19 +125,19 @@ For each hour $h \in [0, 23]$, four non-negative variables are defined:
 
 1. **Hourly Power Balance Equation (24 Equality Constraints)**:
    For every hour $h \in [0, 23]$, total supply must equal total consumption:
-   $$P_{\text{grid}}[h] + P_{\text{solar\_used}}[h] + P_{\text{discharge}}[h] = \text{Demand}[h] + P_{\text{charge}}[h]$$
+   $$P_{\text{grid}}[h] + P_{\text{solar}}[h] + P_{\text{discharge}}[h] = \text{Demand}[h] + P_{\text{charge}}[h]$$
 
 2. **Solar Availability and Curtailment**:
    Usable solar cannot exceed the effective solar after applying operational reductions:
-   $$0 \le P_{\text{solar\_used}}[h] \le P_{\text{effective\_solar}}[h]$$
+   $$0 \le P_{\text{solar}}[h] \le P_{\text{solar,eff}}[h]$$
    Unused solar is curtailed; grid export is not supported.
 
 3. **Battery Charge and Discharge Rate Limits**:
    Battery throughput in any single hour is bounded by device physical ratings:
-   $$0 \le P_{\text{charge}}[h] \le P_{\text{max\_charge\_hour}}$$
-   $$0 \le P_{\text{discharge}}[h] \le P_{\text{max\_discharge\_hour}}$$
-   If a $no\_charge\_window$ is active at hour $h$, $P_{\text{charge}}[h] = 0$.  
-   If a $no\_discharge\_window$ is active at hour $h$, $P_{\text{discharge}}[h] = 0$.
+   $$0 \le P_{\text{charge}}[h] \le P_{\text{charge,max}}$$
+   $$0 \le P_{\text{discharge}}[h] \le P_{\text{discharge,max}}$$
+   If a `no-charge-window` is active at hour $h$, $P_{\text{charge}}[h] = 0$.  
+   If a `no-discharge-window` is active at hour $h$, $P_{\text{discharge}}[h] = 0$.
 
 4. **Battery State-of-Charge Dynamics**:
    The energy stored at the conclusion of hour $h$ follows the cumulative recurrence:
@@ -145,37 +145,37 @@ For each hour $h \in [0, 23]$, four non-negative variables are defined:
 
 5. **Storage Capacity and Dynamic Reserve Bounds (48 Inequality Constraints)**:
    At every hour $h \in [0, 23]$, battery energy must remain within the active lower bound and physical storage ceiling:
-   $$\max\left(E_{\text{min\_base}}, E_{\text{directive\_reserve}}[h]\right) \le E[h] \le E_{\text{capacity}}$$
+   $$\max\left(E_{\text{base,min}}, E_{\text{reserve}}[h]\right) \le E[h] \le E_{\text{capacity}}$$
 
 6. **End-of-Day Battery Neutrality (1 Hard Equality Constraint)**:
    The battery cannot be depleted as a one-time free energy source. Energy after hour 23 must equal the starting energy at hour 0:
    $$E[23] = E_{\text{initial}} \implies \sum_{i=0}^{23} \left( P_{\text{charge}}[i] - P_{\text{discharge}}[i] \right) = 0$$
 
 7. **Substation Grid Import Limitation**:
-   If a $max\_grid\_window$ directive applies at hour $h$:
-   $$P_{\text{grid}}[h] \le P_{\text{max\_grid}}[h]$$
+   If a `max-grid-window` directive applies at hour $h$:
+   $$P_{\text{grid}}[h] \le P_{\text{grid,max}}[h]$$
 
 ---
 
 ## 4. Supported Directives and Operator Note Semantics
 
-Each scenario contains 1 to 3 natural-language operator notes. GridWise maps each note to exactly one supported directive or classifies it as $no\_op$.
+Each scenario contains 1 to 3 natural-language operator notes. GridWise maps each note to exactly one supported directive or classifies it as `no-op`.
 
 | Directive Type | Purpose | Structured Adjustment Schema | Optimization Model Effect |
 | :--- | :--- | :--- | :--- |
-| $solar\_reduction$ | Usable solar yield drops due to cleaning, clouds, or shading | `{"hours": [int...], "factor": float}` | $P_{\text{effective\_solar}}[h] = P_{\text{solar}}[h] \cdot \text{factor}$ |
-| $minimum\_battery\_reserve$ | Elevated emergency battery reserve floor | `{"hours": [int...], $minimum\_energy\_kwh$: float}` | $E[h] \ge \max(E_{\text{base\_min}}, E_{\text{directive\_min}})$ |
-| $no\_charge\_window$ | Prohibits battery charging during specific window | `{"hours": [int...]}` | $P_{\text{charge}}[h] = 0$ |
-| $no\_discharge\_window$ | Prohibits battery discharging during specific window | `{"hours": [int...]}` | $P_{\text{discharge}}[h] = 0$ |
-| $max\_grid\_window$ | Caps grid power import to comply with substation limits | `{"hours": [int...], $max\_grid\_kwh$: float}` | $P_{\text{grid}}[h] \le P_{\text{max\_grid}}$ |
-| $no\_op$ | Irrelevant notice, cafeteria menu, or distractor | `null` | No modification to base model |
+| `solar-reduction` | Usable solar yield drops due to cleaning, clouds, or shading | `{"hours": [int...], "factor": float}` | $P_{\text{solar,eff}}[h] = P_{\text{solar}}[h] \cdot \text{factor}$ |
+| `minimum-battery-reserve` | Elevated emergency battery reserve floor | `{"hours": [int...], `minimum-energy-kwh`: float}` | $E[h] \ge \max(E_{\text{base,min}}, E_{\text{directive,min}})$ |
+| `no-charge-window` | Prohibits battery charging during specific window | `{"hours": [int...]}` | $P_{\text{charge}}[h] = 0$ |
+| `no-discharge-window` | Prohibits battery discharging during specific window | `{"hours": [int...]}` | $P_{\text{discharge}}[h] = 0$ |
+| `max-grid-window` | Caps grid power import to comply with substation limits | `{"hours": [int...], `max-grid-kwh`: float}` | $P_{\text{grid}}[h] \le P_{\text{grid,max}}$ |
+| `no-op` | Irrelevant notice, cafeteria menu, or distractor | `null` | No modification to base model |
 
 ### Strict Semantic Rules:
-- **`applies` Boolean**: $applies = \text{false}$ is strictly assigned **only** to $no\_op$ directives. All five operational directives require $applies = \text{true}$.
+- **`applies` Boolean**: `applies = false` is strictly assigned **only** to `no-op` directives. All five operational directives require `applies = true`.
 - **Interval Format**: Time intervals are half-open ranges: "1 PM to 3 PM" corresponds to hours `[13, 14]`.
 - **Hour Arrays**: Must contain unique integers from 0 to 23 in strictly ascending order.
-- **Factor Semantics**: In $solar\_reduction$, `factor` represents the **usable remaining fraction** (e.g., an "80% reduction" results in `factor: 0.20`).
-- **Distractor Handling**: Announcements regarding cafeteria menus, staff meetings, or weather updates without energy impact are categorized as $no\_op$ with $applies = \text{false}$ and $structured\_adjustment = \text{null}$.
+- **Factor Semantics**: In `solar-reduction`, `factor` represents the **usable remaining fraction** (e.g., an "80% reduction" results in `factor: 0.20`).
+- **Distractor Handling**: Announcements regarding cafeteria menus, staff meetings, or weather updates without energy impact are categorized as `no-op` with `applies = false` and `structured-adjustment = null`.
 
 ---
 
@@ -192,9 +192,9 @@ Our hybrid architecture (**LLM for Natural Language + Guardrails for Safety + Li
   $$\min \sum_{h=0}^{23} \left( P_{\text{grid}}[h] \cdot \text{Tariff}[h] \right)$$
 - Using SciPy's **HiGHS** simplex and interior-point solver guarantees the **mathematically provable global minimum cost** in under **15 milliseconds**, eliminating the suboptimal trade-offs inherent in heuristic methods.
 - Every physical law and directive is encoded as an exact mathematical constraint:
-  - **Hourly Energy Balance**: $P_{\text{grid}}[h] + P_{\text{solar\_used}}[h] + P_{\text{discharge}}[h] - P_{\text{charge}}[h] = \text{Demand}[h]$
+  - **Hourly Energy Balance**: $P_{\text{grid}}[h] + P_{\text{solar}}[h] + P_{\text{discharge}}[h] - P_{\text{charge}}[h] = \text{Demand}[h]$
   - **Dynamic Battery State of Charge**: $E[h] = E_{\text{initial}} + \sum_{i=0}^{h} (P_{\text{charge}}[i] - P_{\text{discharge}}[i])$
-  - **Dynamic Lower Bounds**: $E[h] \ge \max(E_{\text{min\_base}}, E_{\text{directive\_reserve}}[h])$
+  - **Dynamic Lower Bounds**: $E[h] \ge \max(E_{\text{base,min}}, E_{\text{reserve}}[h])$
   - **End-of-Day Neutrality**: $\sum_{i=0}^{23} (P_{\text{charge}}[i] - P_{\text{discharge}}[i]) = 0 \implies E[23] = E_{\text{initial}}$
 
 ### 3. Elimination of Physical Degeneracy via Infinitesimal Regularization
@@ -210,12 +210,12 @@ Our hybrid architecture (**LLM for Natural Language + Guardrails for Safety + Li
 ### 4. Zero-Downtime Resilience via Multi-Tier Fallbacks
 - In a live hackathon judging environment, service uptime is paramount. A crash or timeout scores zero.
 - We implemented a two-stage safety net:
-  - **LLM Level**: If Google Gemini encounters a 503 high-demand spike, rate-limit, or timeout, the service seamlessly cascades to Groq (`llama-3.3-70b-versatile`), then to a deterministic regex parser, and finally to a safe $no\_op$ generator.
+  - **LLM Level**: If Google Gemini encounters a 503 high-demand spike, rate-limit, or timeout, the service seamlessly cascades to Groq (`llama-3.3-70b-versatile`), then to a deterministic regex parser, and finally to a safe `no-op` generator.
   - **Optimizer Level**: If an adversarial combination of constraints ever renders the LP model infeasible, an autonomous greedy heuristic scheduler activates, guaranteeing that a valid schedule satisfying hard physical constraints is always returned.
 
 ### 5. Independent Replay Validation and Penny-Rounding Consistency
 - Floating-point calculations can introduce fractional inaccuracies (e.g., $49.9999999$ vs $50.0000001$). Judges evaluate schedule validity and recalculated totals after rounding.
-- Our Replay Validator rounds all hourly plan variables to 2 decimal places first, applies micro-adjustments ($\pm 0.01$ kWh) on grid purchases to ensure exact zero-error hourly energy balance, and recalculates $total\_grid\_kwh$, $total\_cost\_bdt$, and $peak\_grid\_kwh$ directly from the rounded values. This ensures 100% agreement between the schedule and the reported totals.
+- Our Replay Validator rounds all hourly plan variables to 2 decimal places first, applies micro-adjustments ($\pm 0.01$ kWh) on grid purchases to ensure exact zero-error hourly energy balance, and recalculates `total-grid-kwh`, `total-cost-bdt`, and `peak-grid-kwh` directly from the rounded values. This ensures 100% agreement between the schedule and the reported totals.
 
 ---
 
@@ -225,9 +225,9 @@ During system design, we evaluated several alternative architectures. Below is t
 
 | Alternative Approach | Mechanism | Critical Limitations and Reason Rejected |
 | :--- | :--- | :--- |
-| **1. Pure End-to-End LLM Generation** | Prompting an LLM to directly generate the 24-hour numerical dispatch schedule ($grid\_kwh$, $battery\_kwh$, etc.). | **Rejected due to hallucinations and physical invalidity:**<br>• LLMs cannot consistently maintain floating-point conservation equations across 24 sequential hours; energy balance $P_{\text{grid}} + P_{\text{solar}} + P_{\text{dis}} = D + P_{\text{ch}}$ frequently fails by fractional margins.<br>• End-of-day battery neutrality ($E[23] == E_{\text{initial}}$) is consistently violated because autoregressive token prediction does not solve global boundary-value equalities.<br>• Generation latency for 24 complex JSON objects often takes 8–15+ seconds, risking HTTP timeouts under judge harnesses.<br>• High non-determinism: identical scenarios produce differing costs and occasional constraint violations. |
+| **1. Pure End-to-End LLM Generation** | Prompting an LLM to directly generate the 24-hour numerical dispatch schedule (`grid-kwh`, `battery-kwh`, etc.). | **Rejected due to hallucinations and physical invalidity:**<br>• LLMs cannot consistently maintain floating-point conservation equations across 24 sequential hours; energy balance $P_{\text{grid}} + P_{\text{solar}} + P_{\text{dis}} = D + P_{\text{ch}}$ frequently fails by fractional margins.<br>• End-of-day battery neutrality ($E[23] == E_{\text{initial}}$) is consistently violated because autoregressive token prediction does not solve global boundary-value equalities.<br>• Generation latency for 24 complex JSON objects often takes 8–15+ seconds, risking HTTP timeouts under judge harnesses.<br>• High non-determinism: identical scenarios produce differing costs and occasional constraint violations. |
 | **2. Rule-Based / Regex-Only System** | Using hardcoded keyword matching and regular expressions without an LLM. | **Rejected due to linguistic fragility:**<br>• Vulnerable to hidden linguistic variations and paraphrasing (e.g., *"Panel washing from one until three will leave roughly one-fifth of normal solar output"* requires context understanding that "one until three" means PM and "one-fifth" means factor 0.20).<br>• Fails to distinguish nuanced non-operational distractors (e.g., *"Shift meeting scheduled in the main hall at 3 PM"* vs *"Substation maintenance at 3 PM"*).<br>• Explicitly violates the Hackathon Problem Statement Section 02 requirement: *"The language model must be part of the operator-note interpretation path."* |
-| **3. Greedy / Heuristic Energy Schedulers** | Sorting hours by tariff, charging during lowest-tariff hours, discharging during highest-tariff hours. | **Rejected due to economic sub-optimality:**<br>• Greedy heuristics lack global visibility across coupled temporal constraints. Charging early in the day may saturate battery capacity, preventing the system from absorbing free midday excess solar.<br>• Cannot cleanly handle multi-window overlapping constraints (e.g., a $no\_charge\_window$ overlapping with a $minimum\_battery\_reserve$ and a daytime $solar\_reduction$).<br>• Generates schedules that cost **10% to 25% more** than the true global minimum achieved by Linear Programming. |
+| **3. Greedy / Heuristic Energy Schedulers** | Sorting hours by tariff, charging during lowest-tariff hours, discharging during highest-tariff hours. | **Rejected due to economic sub-optimality:**<br>• Greedy heuristics lack global visibility across coupled temporal constraints. Charging early in the day may saturate battery capacity, preventing the system from absorbing free midday excess solar.<br>• Cannot cleanly handle multi-window overlapping constraints (e.g., a `no-charge-window` overlapping with a `minimum-battery-reserve` and a daytime `solar-reduction`).<br>• Generates schedules that cost **10% to 25% more** than the true global minimum achieved by Linear Programming. |
 | **4. Dynamic Programming (DP) / Reinforcement Learning (RL)** | Discretizing state-of-charge levels into a grid and computing cost-to-go matrices. | **Rejected due to discretization error and computational overhead:**<br>• Continuous battery energy ($0.01$ kWh precision) requires fine state discretization, leading to the curse of dimensionality ($>10^6$ state-action pairs for 24 hours), causing execution times to exceed several seconds.<br>• Coarse discretization introduces rounding errors that violate exact hourly energy balances.<br>• Unnecessary complexity: linear microgrid scheduling does not require Bellman updates when exact LP solves in 15 milliseconds. |
 | **5. Metaheuristics (Genetic Algorithms, PSO, Simulated Annealing)** | Stochastic population-based search for near-optimal schedule vectors. | **Rejected due to slow convergence and constraint violations:**<br>• Stochastic algorithms struggle with equality constraints (e.g., exact hourly energy balance and end-of-day neutrality), requiring penalty functions that produce invalid or near-feasible solutions.<br>• Slow runtime (typically 3–10 seconds per scenario) compared to 15 milliseconds for HiGHS.<br>• Non-deterministic: generates different solutions on repeated runs, making regression testing unreliable. |
 
