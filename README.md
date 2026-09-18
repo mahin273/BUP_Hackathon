@@ -55,14 +55,14 @@ flowchart TD
     end
 
     subgraph LLMLayer["2. Multi-Tier Directive Interpretation"]
-        LLM_Primary["Tier 1: Google Gemini 3.5 Flash\n(Strict JSON Mode, Temp 0.0)"]
-        LLM_Secondary["Tier 2: Groq Fallback\n(llama-3.3-70b-versatile)"]
-        LLM_Fallback["Tier 3: Deterministic Regex Parser\n(Whole-Hour Intervals and Keywords)"]
-        LLM_Safe["Tier 4: Fail-Soft no_op Generator\n(Zero 500 Crashes)"]
+        LLMPrimary["Tier 1: Google Gemini 3.5 Flash\n(Strict JSON Mode, Temp 0.0)"]
+        LLMSecondary["Tier 2: Groq Fallback\n(llama-3.3-70b-versatile)"]
+        LLMFallback["Tier 3: Deterministic Regex Parser\n(Whole-Hour Intervals and Keywords)"]
+        LLMSafe["Tier 4: Fail-Soft No-Op Generator\n(Zero 500 Crashes)"]
     end
 
     subgraph GuardrailLayer["3. Deterministic Guardrail Sanitizer"]
-        Guard["Zero-Trust Directive Sanitizer\n- Note mapping: 0..N-1 with no dupes/gaps\n- Clamps factor to [0.0, 1.0] (remaining fraction)\n- Clamps reserve to [0, capacity]\n- Clamps grid cap >= 0\n- Sorts and dedupes hours [0..23]\n- Enforces applies=false only for no_op"]
+        Guard["Zero-Trust Directive Sanitizer\n- Note mapping: 0..N-1 with no dupes/gaps\n- Clamps factor to [0.0, 1.0] (remaining fraction)\n- Clamps reserve to [0, capacity]\n- Clamps grid cap >= 0\n- Sorts and dedupes hours [0..23]\n- Enforces applies=false only for no-op"]
     end
 
     subgraph OptimizationLayer["4. Mathematical Optimization Engine"]
@@ -75,14 +75,14 @@ flowchart TD
     end
 
     Req --> Pydantic
-    Pydantic --> LLM_Primary
-    LLM_Primary -- "Success" --> Guard
-    LLM_Primary -- "Timeout / Error" --> LLM_Secondary
-    LLM_Secondary -- "Success" --> Guard
-    LLM_Secondary -- "Failed / No Key" --> LLM_Fallback
-    LLM_Fallback -- "Success" --> Guard
-    LLM_Fallback -- "Corrupted Note" --> LLM_Safe
-    LLM_Safe --> Guard
+    Pydantic --> LLMPrimary
+    LLMPrimary -- "Success" --> Guard
+    LLMPrimary -- "Timeout / Error" --> LLMSecondary
+    LLMSecondary -- "Success" --> Guard
+    LLMSecondary -- "Failed / No Key" --> LLMFallback
+    LLMFallback -- "Success" --> Guard
+    LLMFallback -- "Corrupted Note" --> LLMSafe
+    LLMSafe --> Guard
 
     Guard --> LP
     LP -- "Optimal Solution" --> Replay
@@ -95,7 +95,7 @@ flowchart TD
 ### End-to-End Processing Pipeline:
 1. **Request Validation**: Enforces exact 24-hour continuous coverage ($h \in [0, 23]$), valid battery physical constants ($E_{\text{initial}} \le C$, $E_{\text{min}} \le C$), and 1–3 non-empty operator notes. Structurally invalid requests immediately return HTTP 400.
 2. **LLM Interpretation**: Converts natural-language notes into structured schemas. Operates in an isolated daemon thread with a strict 5.0-second timeout budget to eliminate latency spikes.
-3. **Guardrail Sanitization**: Deterministically cleanses LLM output. Sorts and dedupes hour arrays, clamps factors and reserve values, enforces half-open interval semantics ($[start, end)$), and downgrades invalid directives to `no_op` with an explanatory reason without throwing unhandled exceptions.
+3. **Guardrail Sanitization**: Deterministically cleanses LLM output. Sorts and dedupes hour arrays, clamps factors and reserve values, enforces half-open interval semantics ($[start, end)$), and downgrades invalid directives to $no\_op$ with an explanatory reason without throwing unhandled exceptions.
 4. **LP Cost Minimization**: Solves the 96-variable linear program using `scipy.optimize.linprog(method="highs")`. Implements infinitesimal tie-breaking penalties ($\pm 10^{-6}$) to eliminate simultaneous charge/discharge and prioritize free solar.
 5. **Replay Audit and Balance Correction**: Rounds hourly plan figures to 2 decimal places, performs micro-adjustments ($\pm 0.01$ kWh) on grid purchases to ensure exact balance after rounding, and recalculates aggregate totals directly from the rounded schedule.
 
@@ -136,8 +136,8 @@ For each hour $h \in [0, 23]$, four non-negative variables are defined:
    Battery throughput in any single hour is bounded by device physical ratings:
    $$0 \le P_{\text{charge}}[h] \le P_{\text{max\_charge\_hour}}$$
    $$0 \le P_{\text{discharge}}[h] \le P_{\text{max\_discharge\_hour}}$$
-   If a `no_charge_window` is active at hour $h$, $P_{\text{charge}}[h] = 0$.  
-   If a `no_discharge_window` is active at hour $h$, $P_{\text{discharge}}[h] = 0$.
+   If a $no\_charge\_window$ is active at hour $h$, $P_{\text{charge}}[h] = 0$.  
+   If a $no\_discharge\_window$ is active at hour $h$, $P_{\text{discharge}}[h] = 0$.
 
 4. **Battery State-of-Charge Dynamics**:
    The energy stored at the conclusion of hour $h$ follows the cumulative recurrence:
@@ -152,30 +152,30 @@ For each hour $h \in [0, 23]$, four non-negative variables are defined:
    $$E[23] = E_{\text{initial}} \implies \sum_{i=0}^{23} \left( P_{\text{charge}}[i] - P_{\text{discharge}}[i] \right) = 0$$
 
 7. **Substation Grid Import Limitation**:
-   If a `max_grid_window` directive applies at hour $h$:
+   If a $max\_grid\_window$ directive applies at hour $h$:
    $$P_{\text{grid}}[h] \le P_{\text{max\_grid}}[h]$$
 
 ---
 
 ## 4. Supported Directives and Operator Note Semantics
 
-Each scenario contains 1 to 3 natural-language operator notes. GridWise maps each note to exactly one supported directive or classifies it as `no_op`.
+Each scenario contains 1 to 3 natural-language operator notes. GridWise maps each note to exactly one supported directive or classifies it as $no\_op$.
 
 | Directive Type | Purpose | Structured Adjustment Schema | Optimization Model Effect |
 | :--- | :--- | :--- | :--- |
-| `solar_reduction` | Usable solar yield drops due to cleaning, clouds, or shading | `{"hours": [int...], "factor": float}` | $P_{\text{effective\_solar}}[h] = P_{\text{solar}}[h] \cdot \text{factor}$ |
-| `minimum_battery_reserve` | Elevated emergency battery reserve floor | `{"hours": [int...], "minimum_energy_kwh": float}` | $E[h] \ge \max(E_{\text{base\_min}}, E_{\text{directive\_min}})$ |
-| `no_charge_window` | Prohibits battery charging during specific window | `{"hours": [int...]}` | $P_{\text{charge}}[h] = 0$ |
-| `no_discharge_window` | Prohibits battery discharging during specific window | `{"hours": [int...]}` | $P_{\text{discharge}}[h] = 0$ |
-| `max_grid_window` | Caps grid power import to comply with substation limits | `{"hours": [int...], "max_grid_kwh": float}` | $P_{\text{grid}}[h] \le P_{\text{max\_grid}}$ |
-| `no_op` | Irrelevant notice, cafeteria menu, or distractor | `null` | No modification to base model |
+| $solar\_reduction$ | Usable solar yield drops due to cleaning, clouds, or shading | `{"hours": [int...], "factor": float}` | $P_{\text{effective\_solar}}[h] = P_{\text{solar}}[h] \cdot \text{factor}$ |
+| $minimum\_battery\_reserve$ | Elevated emergency battery reserve floor | `{"hours": [int...], $minimum\_energy\_kwh$: float}` | $E[h] \ge \max(E_{\text{base\_min}}, E_{\text{directive\_min}})$ |
+| $no\_charge\_window$ | Prohibits battery charging during specific window | `{"hours": [int...]}` | $P_{\text{charge}}[h] = 0$ |
+| $no\_discharge\_window$ | Prohibits battery discharging during specific window | `{"hours": [int...]}` | $P_{\text{discharge}}[h] = 0$ |
+| $max\_grid\_window$ | Caps grid power import to comply with substation limits | `{"hours": [int...], $max\_grid\_kwh$: float}` | $P_{\text{grid}}[h] \le P_{\text{max\_grid}}$ |
+| $no\_op$ | Irrelevant notice, cafeteria menu, or distractor | `null` | No modification to base model |
 
 ### Strict Semantic Rules:
-- **`applies` Boolean**: `applies = false` is strictly assigned **only** to `no_op` directives. All five operational directives require `applies = true`.
+- **`applies` Boolean**: $applies = \text{false}$ is strictly assigned **only** to $no\_op$ directives. All five operational directives require $applies = \text{true}$.
 - **Interval Format**: Time intervals are half-open ranges: "1 PM to 3 PM" corresponds to hours `[13, 14]`.
 - **Hour Arrays**: Must contain unique integers from 0 to 23 in strictly ascending order.
-- **Factor Semantics**: In `solar_reduction`, `factor` represents the **usable remaining fraction** (e.g., an "80% reduction" results in `factor: 0.20`).
-- **Distractor Handling**: Announcements regarding cafeteria menus, staff meetings, or weather updates without energy impact are categorized as `no_op` with `applies = false` and `structured_adjustment = null`.
+- **Factor Semantics**: In $solar\_reduction$, `factor` represents the **usable remaining fraction** (e.g., an "80% reduction" results in `factor: 0.20`).
+- **Distractor Handling**: Announcements regarding cafeteria menus, staff meetings, or weather updates without energy impact are categorized as $no\_op$ with $applies = \text{false}$ and $structured\_adjustment = \text{null}$.
 
 ---
 
@@ -210,12 +210,12 @@ Our hybrid architecture (**LLM for Natural Language + Guardrails for Safety + Li
 ### 4. Zero-Downtime Resilience via Multi-Tier Fallbacks
 - In a live hackathon judging environment, service uptime is paramount. A crash or timeout scores zero.
 - We implemented a two-stage safety net:
-  - **LLM Level**: If Google Gemini encounters a 503 high-demand spike, rate-limit, or timeout, the service seamlessly cascades to Groq (`llama-3.3-70b-versatile`), then to a deterministic regex parser, and finally to a safe `no_op` generator.
+  - **LLM Level**: If Google Gemini encounters a 503 high-demand spike, rate-limit, or timeout, the service seamlessly cascades to Groq (`llama-3.3-70b-versatile`), then to a deterministic regex parser, and finally to a safe $no\_op$ generator.
   - **Optimizer Level**: If an adversarial combination of constraints ever renders the LP model infeasible, an autonomous greedy heuristic scheduler activates, guaranteeing that a valid schedule satisfying hard physical constraints is always returned.
 
 ### 5. Independent Replay Validation and Penny-Rounding Consistency
 - Floating-point calculations can introduce fractional inaccuracies (e.g., $49.9999999$ vs $50.0000001$). Judges evaluate schedule validity and recalculated totals after rounding.
-- Our Replay Validator rounds all hourly plan variables to 2 decimal places first, applies micro-adjustments ($\pm 0.01$ kWh) on grid purchases to ensure exact zero-error hourly energy balance, and recalculates `total_grid_kwh`, `total_cost_bdt`, and `peak_grid_kwh` directly from the rounded values. This ensures 100% agreement between the schedule and the reported totals.
+- Our Replay Validator rounds all hourly plan variables to 2 decimal places first, applies micro-adjustments ($\pm 0.01$ kWh) on grid purchases to ensure exact zero-error hourly energy balance, and recalculates $total\_grid\_kwh$, $total\_cost\_bdt$, and $peak\_grid\_kwh$ directly from the rounded values. This ensures 100% agreement between the schedule and the reported totals.
 
 ---
 
@@ -225,9 +225,9 @@ During system design, we evaluated several alternative architectures. Below is t
 
 | Alternative Approach | Mechanism | Critical Limitations and Reason Rejected |
 | :--- | :--- | :--- |
-| **1. Pure End-to-End LLM Generation** | Prompting an LLM to directly generate the 24-hour numerical dispatch schedule (`grid_kwh`, `battery_kwh`, etc.). | **Rejected due to hallucinations and physical invalidity:**<br>• LLMs cannot consistently maintain floating-point conservation equations across 24 sequential hours; energy balance $P_{\text{grid}} + P_{\text{solar}} + P_{\text{dis}} = D + P_{\text{ch}}$ frequently fails by fractional margins.<br>• End-of-day battery neutrality ($E[23] == E_{\text{initial}}$) is consistently violated because autoregressive token prediction does not solve global boundary-value equalities.<br>• Generation latency for 24 complex JSON objects often takes 8–15+ seconds, risking HTTP timeouts under judge harnesses.<br>• High non-determinism: identical scenarios produce differing costs and occasional constraint violations. |
+| **1. Pure End-to-End LLM Generation** | Prompting an LLM to directly generate the 24-hour numerical dispatch schedule ($grid\_kwh$, $battery\_kwh$, etc.). | **Rejected due to hallucinations and physical invalidity:**<br>• LLMs cannot consistently maintain floating-point conservation equations across 24 sequential hours; energy balance $P_{\text{grid}} + P_{\text{solar}} + P_{\text{dis}} = D + P_{\text{ch}}$ frequently fails by fractional margins.<br>• End-of-day battery neutrality ($E[23] == E_{\text{initial}}$) is consistently violated because autoregressive token prediction does not solve global boundary-value equalities.<br>• Generation latency for 24 complex JSON objects often takes 8–15+ seconds, risking HTTP timeouts under judge harnesses.<br>• High non-determinism: identical scenarios produce differing costs and occasional constraint violations. |
 | **2. Rule-Based / Regex-Only System** | Using hardcoded keyword matching and regular expressions without an LLM. | **Rejected due to linguistic fragility:**<br>• Vulnerable to hidden linguistic variations and paraphrasing (e.g., *"Panel washing from one until three will leave roughly one-fifth of normal solar output"* requires context understanding that "one until three" means PM and "one-fifth" means factor 0.20).<br>• Fails to distinguish nuanced non-operational distractors (e.g., *"Shift meeting scheduled in the main hall at 3 PM"* vs *"Substation maintenance at 3 PM"*).<br>• Explicitly violates the Hackathon Problem Statement Section 02 requirement: *"The language model must be part of the operator-note interpretation path."* |
-| **3. Greedy / Heuristic Energy Schedulers** | Sorting hours by tariff, charging during lowest-tariff hours, discharging during highest-tariff hours. | **Rejected due to economic sub-optimality:**<br>• Greedy heuristics lack global visibility across coupled temporal constraints. Charging early in the day may saturate battery capacity, preventing the system from absorbing free midday excess solar.<br>• Cannot cleanly handle multi-window overlapping constraints (e.g., a `no_charge_window` overlapping with a `minimum_battery_reserve` and a daytime `solar_reduction`).<br>• Generates schedules that cost **10% to 25% more** than the true global minimum achieved by Linear Programming. |
+| **3. Greedy / Heuristic Energy Schedulers** | Sorting hours by tariff, charging during lowest-tariff hours, discharging during highest-tariff hours. | **Rejected due to economic sub-optimality:**<br>• Greedy heuristics lack global visibility across coupled temporal constraints. Charging early in the day may saturate battery capacity, preventing the system from absorbing free midday excess solar.<br>• Cannot cleanly handle multi-window overlapping constraints (e.g., a $no\_charge\_window$ overlapping with a $minimum\_battery\_reserve$ and a daytime $solar\_reduction$).<br>• Generates schedules that cost **10% to 25% more** than the true global minimum achieved by Linear Programming. |
 | **4. Dynamic Programming (DP) / Reinforcement Learning (RL)** | Discretizing state-of-charge levels into a grid and computing cost-to-go matrices. | **Rejected due to discretization error and computational overhead:**<br>• Continuous battery energy ($0.01$ kWh precision) requires fine state discretization, leading to the curse of dimensionality ($>10^6$ state-action pairs for 24 hours), causing execution times to exceed several seconds.<br>• Coarse discretization introduces rounding errors that violate exact hourly energy balances.<br>• Unnecessary complexity: linear microgrid scheduling does not require Bellman updates when exact LP solves in 15 milliseconds. |
 | **5. Metaheuristics (Genetic Algorithms, PSO, Simulated Annealing)** | Stochastic population-based search for near-optimal schedule vectors. | **Rejected due to slow convergence and constraint violations:**<br>• Stochastic algorithms struggle with equality constraints (e.g., exact hourly energy balance and end-of-day neutrality), requiring penalty functions that produce invalid or near-feasible solutions.<br>• Slow runtime (typically 3–10 seconds per scenario) compared to 15 milliseconds for HiGHS.<br>• Non-deterministic: generates different solutions on repeated runs, making regression testing unreliable. |
 
@@ -260,47 +260,7 @@ Submit a 24-hour scenario with operator notes:
 ```bash
 curl -s -X POST "https://bup-hackathon-1.onrender.com/optimize-energy" \
   -H "Content-Type: application/json" \
-  -d '{
-    "scenario_id": "BUP-CAMPUS-001",
-    "operator_notes": [
-      "Solar output will drop to about 20% from 1 PM to 3 PM.",
-      "Do not charge the battery between 2 PM and 4 PM.",
-      "Cafeteria menu update: fish curry tomorrow."
-    ],
-    "hours": [
-      {"hour": 0, "demand_kwh": 40.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 5.0},
-      {"hour": 1, "demand_kwh": 38.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 5.0},
-      {"hour": 2, "demand_kwh": 35.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 5.0},
-      {"hour": 3, "demand_kwh": 35.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 5.0},
-      {"hour": 4, "demand_kwh": 37.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 5.0},
-      {"hour": 5, "demand_kwh": 42.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 5.0},
-      {"hour": 6, "demand_kwh": 55.0, "solar_kwh": 10.0, "tariff_bdt_per_kwh": 6.5},
-      {"hour": 7, "demand_kwh": 70.0, "solar_kwh": 25.0, "tariff_bdt_per_kwh": 6.5},
-      {"hour": 8, "demand_kwh": 85.0, "solar_kwh": 45.0, "tariff_bdt_per_kwh": 6.5},
-      {"hour": 9, "demand_kwh": 95.0, "solar_kwh": 65.0, "tariff_bdt_per_kwh": 6.5},
-      {"hour": 10, "demand_kwh": 100.0, "solar_kwh": 80.0, "tariff_bdt_per_kwh": 6.5},
-      {"hour": 11, "demand_kwh": 105.0, "solar_kwh": 90.0, "tariff_bdt_per_kwh": 6.5},
-      {"hour": 12, "demand_kwh": 110.0, "solar_kwh": 95.0, "tariff_bdt_per_kwh": 6.5},
-      {"hour": 13, "demand_kwh": 105.0, "solar_kwh": 90.0, "tariff_bdt_per_kwh": 6.5},
-      {"hour": 14, "demand_kwh": 100.0, "solar_kwh": 80.0, "tariff_bdt_per_kwh": 6.5},
-      {"hour": 15, "demand_kwh": 95.0, "solar_kwh": 60.0, "tariff_bdt_per_kwh": 6.5},
-      {"hour": 16, "demand_kwh": 90.0, "solar_kwh": 40.0, "tariff_bdt_per_kwh": 6.5},
-      {"hour": 17, "demand_kwh": 85.0, "solar_kwh": 15.0, "tariff_bdt_per_kwh": 9.0},
-      {"hour": 18, "demand_kwh": 95.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 10.5},
-      {"hour": 19, "demand_kwh": 100.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 10.5},
-      {"hour": 20, "demand_kwh": 95.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 10.5},
-      {"hour": 21, "demand_kwh": 85.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 10.5},
-      {"hour": 22, "demand_kwh": 70.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 9.0},
-      {"hour": 23, "demand_kwh": 50.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.5}
-    ],
-    "battery": {
-      "capacity_kwh": 200.0,
-      "initial_energy_kwh": 80.0,
-      "minimum_energy_kwh": 20.0,
-      "max_charge_kwh_per_hour": 40.0,
-      "max_discharge_kwh_per_hour": 40.0
-    }
-  }'
+  -d @scenario.json
 ```
 
 ---
@@ -311,8 +271,8 @@ curl -s -X POST "https://bup-hackathon-1.onrender.com/optimize-energy" \
 
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/mahin273/BUP_Hackathon.git
-   cd BUP_Hackathon
+   git clone https://github.com/mahin273/BUP-Hackathon.git campus-energy
+   cd campus-energy
    ```
 
 2. **Create and Activate Virtual Environment**:
@@ -332,9 +292,9 @@ curl -s -X POST "https://bup-hackathon-1.onrender.com/optimize-energy" \
    ```env
    PORT=8000
    HOST=0.0.0.0
-   GEMINI_API_KEY=your_google_ai_studio_api_key
-   GROQ_API_KEY=your_optional_groq_api_key
-   TIMEOUT_SECONDS=5.0
+   cp .env.example .env
+   # Edit .env with your Gemini API key
+   # Optional: add Groq key and timeout configuration
    ```
 
 5. **Start the Microservice**:
