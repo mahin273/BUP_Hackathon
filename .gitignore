@@ -1,0 +1,16 @@
+# Ignore problem statements and internal design docs
+BUP_CSE_FEST_2026_Preliminary_Problem_Statement_GridWise_LLM.md
+gridwise-design-doc.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# Environment & OS
+.env
+.DS_Store
