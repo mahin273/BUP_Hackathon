@@ -131,7 +131,7 @@ def sanitize_single_directive(
             )
 
         elif dir_type == "minimum_battery_reserve":
-            raw_reserve = _safe_float(adj.get("minimum_energy_kwh"))
+            raw_reserve = _safe_float(adj.get("minimum_energy_kwh") if "minimum_energy_kwh" in adj else adj.get("reserve_kwh"))
             if raw_reserve is None or raw_reserve < 0.0:
                 return DirectiveInterpretation(
                     note_index=note_idx,
