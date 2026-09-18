@@ -68,7 +68,7 @@ python tests/submission_checklist.py https://your-deployed-api.onrender.com
 
 ### Constraint Validations
 - ✅ Energy balance per hour: `grid + solar + discharge = demand + charge`
-- ✅ Battery bounds: `min_energy_kwh ≤ battery_energy ≤ capacity_kwh`
+- ✅ Battery bounds: `minimum_energy_kwh ≤ battery_energy ≤ capacity_kwh`
 - ✅ Battery rate limits: charge/discharge within per-hour limits
 - ✅ Battery energy continuity: correct transitions hour-to-hour
 - ✅ End-of-day neutrality: `battery_energy[23] == initial_energy_kwh`
@@ -216,7 +216,7 @@ curl https://your-api-url.com/health
 - Look for floating point precision issues (use --tolerance)
 
 **Battery Bounds Violation**
-- Verify min_energy_kwh and capacity_kwh constraints
+- Verify minimum_energy_kwh and capacity_kwh constraints
 - Check directive enforcement (e.g., minimum_battery_reserve)
 
 **End-of-Day Neutrality Failed**

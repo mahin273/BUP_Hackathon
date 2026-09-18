@@ -10,15 +10,15 @@ TEST_CASE_1_SOLAR_REDUCTION = {
         "Cloud cover expected between 10 AM and 2 PM, reduce solar to 60%"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 50.0, "solar_available_kwh": 30.0, "tariff_bdt_per_kwh": 8.0 if 18 <= h <= 22 else 5.0}
+        {"hour": h, "demand_kwh": 50.0, "solar_kwh": 30.0, "tariff_bdt_per_kwh": 8.0 if 18 <= h <= 22 else 5.0}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 100.0,
         "initial_energy_kwh": 50.0,
-        "max_charge_per_hour": 20.0,
-        "max_discharge_per_hour": 20.0,
-        "min_energy_kwh": 10.0
+        "max_charge_kwh_per_hour": 20.0,
+        "max_discharge_kwh_per_hour": 20.0,
+        "minimum_energy_kwh": 10.0
     }
 }
 
@@ -29,15 +29,15 @@ TEST_CASE_2_MIN_RESERVE = {
         "Keep battery at least 70% charged during peak hours 6 PM to 10 PM"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 45.0, "solar_available_kwh": 25.0, "tariff_bdt_per_kwh": 9.0 if 18 <= h <= 22 else 5.5}
+        {"hour": h, "demand_kwh": 45.0, "solar_kwh": 25.0, "tariff_bdt_per_kwh": 9.0 if 18 <= h <= 22 else 5.5}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 120.0,
         "initial_energy_kwh": 60.0,
-        "max_charge_per_hour": 25.0,
-        "max_discharge_per_hour": 25.0,
-        "min_energy_kwh": 12.0
+        "max_charge_kwh_per_hour": 25.0,
+        "max_discharge_kwh_per_hour": 25.0,
+        "minimum_energy_kwh": 12.0
     }
 }
 
@@ -48,15 +48,15 @@ TEST_CASE_3_NO_CHARGE = {
         "Do not charge battery between 5 PM and 9 PM"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 55.0, "solar_available_kwh": 35.0, "tariff_bdt_per_kwh": 10.0 if 17 <= h <= 21 else 6.0}
+        {"hour": h, "demand_kwh": 55.0, "solar_kwh": 35.0, "tariff_bdt_per_kwh": 10.0 if 17 <= h <= 21 else 6.0}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 80.0,
         "initial_energy_kwh": 40.0,
-        "max_charge_per_hour": 15.0,
-        "max_discharge_per_hour": 15.0,
-        "min_energy_kwh": 8.0
+        "max_charge_kwh_per_hour": 15.0,
+        "max_discharge_kwh_per_hour": 15.0,
+        "minimum_energy_kwh": 8.0
     }
 }
 
@@ -67,15 +67,15 @@ TEST_CASE_4_NO_DISCHARGE = {
         "Battery discharge prohibited from 11 PM to 5 AM for maintenance"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 60.0, "solar_available_kwh": 20.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 7.0}
+        {"hour": h, "demand_kwh": 60.0, "solar_kwh": 20.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 7.0}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 100.0,
         "initial_energy_kwh": 50.0,
-        "max_charge_per_hour": 20.0,
-        "max_discharge_per_hour": 20.0,
-        "min_energy_kwh": 10.0
+        "max_charge_kwh_per_hour": 20.0,
+        "max_discharge_kwh_per_hour": 20.0,
+        "minimum_energy_kwh": 10.0
     }
 }
 
@@ -86,15 +86,15 @@ TEST_CASE_5_MAX_GRID = {
         "Limit grid usage to 30 kWh per hour during 7 AM to 11 AM"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 65.0, "solar_available_kwh": 20.0, "tariff_bdt_per_kwh": 8.5 if 18 <= h <= 22 else 6.5}
+        {"hour": h, "demand_kwh": 65.0, "solar_kwh": 20.0, "tariff_bdt_per_kwh": 8.5 if 18 <= h <= 22 else 6.5}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 150.0,
         "initial_energy_kwh": 75.0,
-        "max_charge_per_hour": 30.0,
-        "max_discharge_per_hour": 30.0,
-        "min_energy_kwh": 15.0
+        "max_charge_kwh_per_hour": 30.0,
+        "max_discharge_kwh_per_hour": 30.0,
+        "minimum_energy_kwh": 15.0
     }
 }
 
@@ -105,15 +105,15 @@ TEST_CASE_6_NO_OP = {
         "Weather looks good today, nothing special needed"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 50.0, "solar_available_kwh": 30.0, "tariff_bdt_per_kwh": 7.5}
+        {"hour": h, "demand_kwh": 50.0, "solar_kwh": 30.0, "tariff_bdt_per_kwh": 7.5}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 100.0,
         "initial_energy_kwh": 50.0,
-        "max_charge_per_hour": 20.0,
-        "max_discharge_per_hour": 20.0,
-        "min_energy_kwh": 10.0
+        "max_charge_kwh_per_hour": 20.0,
+        "max_discharge_kwh_per_hour": 20.0,
+        "minimum_energy_kwh": 10.0
     }
 }
 
@@ -125,15 +125,15 @@ TEST_CASE_7_COMBINED_SOLAR_NO_CHARGE = {
         "Don't charge battery during peak hours 6 PM to 10 PM"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 52.0, "solar_available_kwh": 28.0, "tariff_bdt_per_kwh": 9.5 if 18 <= h <= 22 else 6.0}
+        {"hour": h, "demand_kwh": 52.0, "solar_kwh": 28.0, "tariff_bdt_per_kwh": 9.5 if 18 <= h <= 22 else 6.0}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 110.0,
         "initial_energy_kwh": 55.0,
-        "max_charge_per_hour": 22.0,
-        "max_discharge_per_hour": 22.0,
-        "min_energy_kwh": 11.0
+        "max_charge_kwh_per_hour": 22.0,
+        "max_discharge_kwh_per_hour": 22.0,
+        "minimum_energy_kwh": 11.0
     }
 }
 
@@ -145,15 +145,15 @@ TEST_CASE_8_COMBINED_RESERVE_NO_DISCHARGE = {
         "No discharge allowed from 1 AM to 6 AM"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 48.0, "solar_available_kwh": 25.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 8.0 if 18 <= h <= 23 else 5.5}
+        {"hour": h, "demand_kwh": 48.0, "solar_kwh": 25.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 8.0 if 18 <= h <= 23 else 5.5}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 130.0,
         "initial_energy_kwh": 65.0,
-        "max_charge_per_hour": 25.0,
-        "max_discharge_per_hour": 25.0,
-        "min_energy_kwh": 13.0
+        "max_charge_kwh_per_hour": 25.0,
+        "max_discharge_kwh_per_hour": 25.0,
+        "minimum_energy_kwh": 13.0
     }
 }
 
@@ -165,15 +165,15 @@ TEST_CASE_9_COMBINED_GRID_SOLAR = {
         "Solar output reduced to 50% from 1 PM to 5 PM due to cloud cover"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 58.0, "solar_available_kwh": 32.0, "tariff_bdt_per_kwh": 9.0 if 18 <= h <= 22 else 6.5}
+        {"hour": h, "demand_kwh": 58.0, "solar_kwh": 32.0, "tariff_bdt_per_kwh": 9.0 if 18 <= h <= 22 else 6.5}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 140.0,
         "initial_energy_kwh": 70.0,
-        "max_charge_per_hour": 28.0,
-        "max_discharge_per_hour": 28.0,
-        "min_energy_kwh": 14.0
+        "max_charge_kwh_per_hour": 28.0,
+        "max_discharge_kwh_per_hour": 28.0,
+        "minimum_energy_kwh": 14.0
     }
 }
 
@@ -186,15 +186,15 @@ TEST_CASE_10_STRESS = {
         "No charging between 7 PM and 9 PM"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 62.0, "solar_available_kwh": 30.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 10.0 if 18 <= h <= 22 else 6.0}
+        {"hour": h, "demand_kwh": 62.0, "solar_kwh": 30.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 10.0 if 18 <= h <= 22 else 6.0}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 160.0,
         "initial_energy_kwh": 80.0,
-        "max_charge_per_hour": 30.0,
-        "max_discharge_per_hour": 30.0,
-        "min_energy_kwh": 16.0
+        "max_charge_kwh_per_hour": 30.0,
+        "max_discharge_kwh_per_hour": 30.0,
+        "minimum_energy_kwh": 16.0
     }
 }
 

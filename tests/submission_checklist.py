@@ -5,11 +5,15 @@ Run this before final submission to ensure everything is ready for judging
 """
 
 import requests
+import os
 import sys
 import socket
 import argparse
 from typing import Dict, List, Tuple
 from datetime import datetime
+
+# Ensure tests directory is in sys.path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from test_harness import Colors, print_header, print_success, print_error, print_warning, print_info
 
@@ -107,15 +111,15 @@ def check_optimize_endpoint(url: str, timeout: int = 30) -> Tuple[bool, str]:
         "scenario_id": "submission_check_001",
         "operator_notes": ["No special conditions"],
         "hours": [
-            {"hour": h, "demand_kwh": 50.0, "solar_available_kwh": 20.0, "tariff_bdt_per_kwh": 6.0}
+            {"hour": h, "demand_kwh": 50.0, "solar_kwh": 20.0, "tariff_bdt_per_kwh": 6.0}
             for h in range(24)
         ],
         "battery": {
             "capacity_kwh": 100.0,
             "initial_energy_kwh": 50.0,
-            "max_charge_per_hour": 20.0,
-            "max_discharge_per_hour": 20.0,
-            "min_energy_kwh": 10.0
+            "max_charge_kwh_per_hour": 20.0,
+            "max_discharge_kwh_per_hour": 20.0,
+            "minimum_energy_kwh": 10.0
         }
     }
     
@@ -195,15 +199,15 @@ def check_response_time(url: str, timeout: int = 30) -> Tuple[bool, str]:
         "scenario_id": "timing_check_001",
         "operator_notes": ["Standard test"],
         "hours": [
-            {"hour": h, "demand_kwh": 50.0, "solar_available_kwh": 20.0, "tariff_bdt_per_kwh": 6.0}
+            {"hour": h, "demand_kwh": 50.0, "solar_kwh": 20.0, "tariff_bdt_per_kwh": 6.0}
             for h in range(24)
         ],
         "battery": {
             "capacity_kwh": 100.0,
             "initial_energy_kwh": 50.0,
-            "max_charge_per_hour": 20.0,
-            "max_discharge_per_hour": 20.0,
-            "min_energy_kwh": 10.0
+            "max_charge_kwh_per_hour": 20.0,
+            "max_discharge_kwh_per_hour": 20.0,
+            "minimum_energy_kwh": 10.0
         }
     }
     

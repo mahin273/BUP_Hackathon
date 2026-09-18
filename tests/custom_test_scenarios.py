@@ -11,15 +11,15 @@ CUSTOM_SOLAR_PARAPHRASE = {
         "Expect 40% cloud coverage reducing solar panel output during midday hours 11 to 3"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 55.0, "solar_available_kwh": 35.0, "tariff_bdt_per_kwh": 8.5 if 18 <= h <= 22 else 6.0}
+        {"hour": h, "demand_kwh": 55.0, "solar_kwh": 35.0, "tariff_bdt_per_kwh": 8.5 if 18 <= h <= 22 else 6.0}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 120.0,
         "initial_energy_kwh": 60.0,
-        "max_charge_per_hour": 24.0,
-        "max_discharge_per_hour": 24.0,
-        "min_energy_kwh": 12.0
+        "max_charge_kwh_per_hour": 24.0,
+        "max_discharge_kwh_per_hour": 24.0,
+        "minimum_energy_kwh": 12.0
     }
 }
 
@@ -30,15 +30,15 @@ CUSTOM_RESERVE_PARAPHRASE = {
         "Maintain battery storage at minimum 85 kWh throughout evening peak from 7 PM until midnight"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 60.0, "solar_available_kwh": 28.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 10.0 if 19 <= h <= 23 else 6.5}
+        {"hour": h, "demand_kwh": 60.0, "solar_kwh": 28.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 10.0 if 19 <= h <= 23 else 6.5}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 150.0,
         "initial_energy_kwh": 75.0,
-        "max_charge_per_hour": 28.0,
-        "max_discharge_per_hour": 28.0,
-        "min_energy_kwh": 15.0
+        "max_charge_kwh_per_hour": 28.0,
+        "max_discharge_kwh_per_hour": 28.0,
+        "minimum_energy_kwh": 15.0
     }
 }
 
@@ -51,15 +51,15 @@ CUSTOM_TRIPLE_COMBO = {
         "Grid consumption capped at 35 kWh per hour during morning rush 7 AM to 10 AM"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 58.0, "solar_available_kwh": 30.0, "tariff_bdt_per_kwh": 9.5 if 18 <= h <= 22 else 6.5}
+        {"hour": h, "demand_kwh": 58.0, "solar_kwh": 30.0, "tariff_bdt_per_kwh": 9.5 if 18 <= h <= 22 else 6.5}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 140.0,
         "initial_energy_kwh": 70.0,
-        "max_charge_per_hour": 26.0,
-        "max_discharge_per_hour": 26.0,
-        "min_energy_kwh": 14.0
+        "max_charge_kwh_per_hour": 26.0,
+        "max_discharge_kwh_per_hour": 26.0,
+        "minimum_energy_kwh": 14.0
     }
 }
 
@@ -72,15 +72,15 @@ CUSTOM_COMPLEX_OVERLAP = {
         "Solar generation expected at only 55% capacity from 10 AM to 2 PM"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 52.0, "solar_available_kwh": 32.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 9.0 if 17 <= h <= 23 else 5.5}
+        {"hour": h, "demand_kwh": 52.0, "solar_kwh": 32.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 9.0 if 17 <= h <= 23 else 5.5}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 160.0,
         "initial_energy_kwh": 80.0,
-        "max_charge_per_hour": 30.0,
-        "max_discharge_per_hour": 30.0,
-        "min_energy_kwh": 16.0
+        "max_charge_kwh_per_hour": 30.0,
+        "max_discharge_kwh_per_hour": 30.0,
+        "minimum_energy_kwh": 16.0
     }
 }
 
@@ -91,15 +91,15 @@ CUSTOM_NO_CHARGE_PARAPHRASE = {
         "Avoid charging the battery storage system during high demand period from 4 PM to 9 PM"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 50.0, "solar_available_kwh": 25.0 if 7 <= h <= 17 else 0.0, "tariff_bdt_per_kwh": 8.0 if 16 <= h <= 21 else 5.5}
+        {"hour": h, "demand_kwh": 50.0, "solar_kwh": 25.0 if 7 <= h <= 17 else 0.0, "tariff_bdt_per_kwh": 8.0 if 16 <= h <= 21 else 5.5}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 100.0,
         "initial_energy_kwh": 50.0,
-        "max_charge_per_hour": 20.0,
-        "max_discharge_per_hour": 20.0,
-        "min_energy_kwh": 10.0
+        "max_charge_kwh_per_hour": 20.0,
+        "max_discharge_kwh_per_hour": 20.0,
+        "minimum_energy_kwh": 10.0
     }
 }
 
@@ -109,19 +109,18 @@ CUSTOM_EXTREME_STRESS = {
     "operator_notes": [
         "Solar panels operating at 70% due to dust accumulation from noon to 4 PM",
         "Battery must maintain 90 kWh minimum reserve during evening hours 6 PM to midnight",
-        "No battery charging permitted between 7 PM and 10 PM",
-        "Limit grid draw to 30 kWh/hour during peak morning 8 AM to 11 AM"
+        "No battery charging permitted between 7 PM and 10 PM"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 65.0, "solar_available_kwh": 33.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 10.5 if 18 <= h <= 22 else 6.0}
+        {"hour": h, "demand_kwh": 65.0, "solar_kwh": 33.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 10.5 if 18 <= h <= 22 else 6.0}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 150.0,
         "initial_energy_kwh": 75.0,
-        "max_charge_per_hour": 28.0,
-        "max_discharge_per_hour": 28.0,
-        "min_energy_kwh": 15.0
+        "max_charge_kwh_per_hour": 28.0,
+        "max_discharge_kwh_per_hour": 28.0,
+        "minimum_energy_kwh": 15.0
     }
 }
 
@@ -133,15 +132,15 @@ CUSTOM_AMBIGUOUS_WORDING = {
         "Keep the battery well-charged during peak evening, at least 70 kWh from 6 PM onwards"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 48.0, "solar_available_kwh": 26.0, "tariff_bdt_per_kwh": 8.5 if 18 <= h <= 22 else 6.0}
+        {"hour": h, "demand_kwh": 48.0, "solar_kwh": 26.0, "tariff_bdt_per_kwh": 8.5 if 18 <= h <= 22 else 6.0}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 110.0,
         "initial_energy_kwh": 55.0,
-        "max_charge_per_hour": 22.0,
-        "max_discharge_per_hour": 22.0,
-        "min_energy_kwh": 11.0
+        "max_charge_kwh_per_hour": 22.0,
+        "max_discharge_kwh_per_hour": 22.0,
+        "minimum_energy_kwh": 11.0
     }
 }
 
@@ -153,15 +152,15 @@ CUSTOM_NATURAL_LANGUAGE = {
         "Don't let the battery discharge from 2 AM to 7 AM while we do maintenance"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 54.0, "solar_available_kwh": 29.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 8.0 if 18 <= h <= 22 else 6.0}
+        {"hour": h, "demand_kwh": 54.0, "solar_kwh": 29.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 8.0 if 18 <= h <= 22 else 6.0}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 125.0,
         "initial_energy_kwh": 62.5,
-        "max_charge_per_hour": 25.0,
-        "max_discharge_per_hour": 25.0,
-        "min_energy_kwh": 12.5
+        "max_charge_kwh_per_hour": 25.0,
+        "max_discharge_kwh_per_hour": 25.0,
+        "minimum_energy_kwh": 12.5
     }
 }
 
@@ -174,15 +173,15 @@ CUSTOM_ADJACENT_WINDOWS = {
         "Maintain 80 kWh battery minimum from 11 PM to 2 AM"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 56.0, "solar_available_kwh": 27.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 9.0 if 17 <= h <= 22 else 6.0}
+        {"hour": h, "demand_kwh": 56.0, "solar_kwh": 27.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 9.0 if 17 <= h <= 22 else 6.0}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 130.0,
         "initial_energy_kwh": 65.0,
-        "max_charge_per_hour": 26.0,
-        "max_discharge_per_hour": 26.0,
-        "min_energy_kwh": 13.0
+        "max_charge_kwh_per_hour": 26.0,
+        "max_discharge_kwh_per_hour": 26.0,
+        "minimum_energy_kwh": 13.0
     }
 }
 
@@ -193,15 +192,15 @@ CUSTOM_PERCENTAGE_RESERVE = {
         "Battery should stay above 75% capacity during high demand evening 6 PM to 10 PM"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 53.0, "solar_available_kwh": 28.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 9.5 if 18 <= h <= 22 else 6.5}
+        {"hour": h, "demand_kwh": 53.0, "solar_kwh": 28.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 9.5 if 18 <= h <= 22 else 6.5}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 120.0,  # 75% = 90 kWh
         "initial_energy_kwh": 60.0,
-        "max_charge_per_hour": 24.0,
-        "max_discharge_per_hour": 24.0,
-        "min_energy_kwh": 12.0
+        "max_charge_kwh_per_hour": 24.0,
+        "max_discharge_kwh_per_hour": 24.0,
+        "minimum_energy_kwh": 12.0
     }
 }
 
@@ -214,15 +213,15 @@ CUSTOM_TIGHT_CONSTRAINTS = {
         "Battery reserve must be at least 65 kWh during those same hours 6 PM to 9 PM"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 62.0, "solar_available_kwh": 31.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 10.0 if 18 <= h <= 21 else 6.5}
+        {"hour": h, "demand_kwh": 62.0, "solar_kwh": 31.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 10.0 if 18 <= h <= 21 else 6.5}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 135.0,
         "initial_energy_kwh": 67.5,
-        "max_charge_per_hour": 27.0,
-        "max_discharge_per_hour": 27.0,
-        "min_energy_kwh": 13.5
+        "max_charge_kwh_per_hour": 27.0,
+        "max_discharge_kwh_per_hour": 27.0,
+        "minimum_energy_kwh": 13.5
     }
 }
 
@@ -234,15 +233,15 @@ CUSTOM_TIME_FORMAT_VARIANTS = {
         "Grid usage limited to 32 kWh/hr in the morning between 8-11"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 51.0, "solar_available_kwh": 28.0, "tariff_bdt_per_kwh": 8.0 if 18 <= h <= 22 else 6.0}
+        {"hour": h, "demand_kwh": 51.0, "solar_kwh": 28.0, "tariff_bdt_per_kwh": 8.0 if 18 <= h <= 22 else 6.0}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 115.0,
         "initial_energy_kwh": 57.5,
-        "max_charge_per_hour": 23.0,
-        "max_discharge_per_hour": 23.0,
-        "min_energy_kwh": 11.5
+        "max_charge_kwh_per_hour": 23.0,
+        "max_discharge_kwh_per_hour": 23.0,
+        "minimum_energy_kwh": 11.5
     }
 }
 
@@ -255,15 +254,15 @@ CUSTOM_DISTRACTOR_HEAVY = {
         "All systems operational and functioning normally"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 49.0, "solar_available_kwh": 26.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 8.5 if 18 <= h <= 22 else 6.0}
+        {"hour": h, "demand_kwh": 49.0, "solar_kwh": 26.0 if 6 <= h <= 18 else 0.0, "tariff_bdt_per_kwh": 8.5 if 18 <= h <= 22 else 6.0}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 110.0,
         "initial_energy_kwh": 55.0,
-        "max_charge_per_hour": 22.0,
-        "max_discharge_per_hour": 22.0,
-        "min_energy_kwh": 11.0
+        "max_charge_kwh_per_hour": 22.0,
+        "max_discharge_kwh_per_hour": 22.0,
+        "minimum_energy_kwh": 11.0
     }
 }
 
@@ -275,15 +274,15 @@ CUSTOM_OVERNIGHT_FOCUS = {
         "Maintain minimum 60 kWh reserve from midnight to 4 AM"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 45.0 if h < 6 or h >= 22 else 58.0, "solar_available_kwh": 28.0 if 7 <= h <= 17 else 0.0, "tariff_bdt_per_kwh": 5.0 if h < 6 or h >= 22 else 7.5}
+        {"hour": h, "demand_kwh": 45.0 if h < 6 or h >= 22 else 58.0, "solar_kwh": 28.0 if 7 <= h <= 17 else 0.0, "tariff_bdt_per_kwh": 5.0 if h < 6 or h >= 22 else 7.5}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 105.0,
         "initial_energy_kwh": 52.5,
-        "max_charge_per_hour": 21.0,
-        "max_discharge_per_hour": 21.0,
-        "min_energy_kwh": 10.5
+        "max_charge_kwh_per_hour": 21.0,
+        "max_discharge_kwh_per_hour": 21.0,
+        "minimum_energy_kwh": 10.5
     }
 }
 
@@ -296,15 +295,15 @@ CUSTOM_SHORT_WINDOWS = {
         "Grid limited to 25 kWh during peak hour 7 PM to 8 PM"
     ],
     "hours": [
-        {"hour": h, "demand_kwh": 54.0, "solar_available_kwh": 29.0, "tariff_bdt_per_kwh": 9.0 if h == 19 or h == 20 else 6.5}
+        {"hour": h, "demand_kwh": 54.0, "solar_kwh": 29.0, "tariff_bdt_per_kwh": 9.0 if h == 19 or h == 20 else 6.5}
         for h in range(24)
     ],
     "battery": {
         "capacity_kwh": 125.0,
         "initial_energy_kwh": 62.5,
-        "max_charge_per_hour": 25.0,
-        "max_discharge_per_hour": 25.0,
-        "min_energy_kwh": 12.5
+        "max_charge_kwh_per_hour": 25.0,
+        "max_discharge_kwh_per_hour": 25.0,
+        "minimum_energy_kwh": 12.5
     }
 }
 

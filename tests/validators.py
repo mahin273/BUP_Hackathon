@@ -71,7 +71,7 @@ def validate_battery_bounds(
     errors = []
     
     capacity = battery_config["capacity_kwh"]
-    min_energy = battery_config["min_energy_kwh"]
+    min_energy = battery_config.get("minimum_energy_kwh", battery_config.get("min_energy_kwh", 0.0))
     
     for hour_plan in hourly_plan:
         hour = hour_plan["hour"]
@@ -112,8 +112,8 @@ def validate_battery_rate_limits(
     """
     errors = []
     
-    max_charge = battery_config["max_charge_per_hour"]
-    max_discharge = battery_config["max_discharge_per_hour"]
+    max_charge = battery_config.get("max_charge_kwh_per_hour", battery_config.get("max_charge_per_hour", float("inf")))
+    max_discharge = battery_config.get("max_discharge_kwh_per_hour", battery_config.get("max_discharge_per_hour", float("inf")))
     
     for hour_plan in hourly_plan:
         hour = hour_plan["hour"]

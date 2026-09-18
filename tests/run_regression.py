@@ -4,11 +4,15 @@ Runs after every merge to catch regressions
 Can be integrated with GitHub Actions, GitLab CI, or run locally
 """
 
+import os
 import sys
 import argparse
 import json
 from datetime import datetime
 from typing import Dict, Any, List
+
+# Ensure tests directory is in sys.path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from test_harness import run_all_tests, print_header, print_success, print_error, print_warning, print_info, Colors
 from test_data import PUBLIC_TEST_CASES

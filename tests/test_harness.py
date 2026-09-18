@@ -5,10 +5,14 @@ Loops through test cases, POSTs to API, and validates all constraints
 
 import requests
 import json
+import os
 import sys
 from typing import Dict, Any, Optional
 from datetime import datetime
 import argparse
+
+# Ensure tests directory is in sys.path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from test_data import PUBLIC_TEST_CASES
 from validators import validate_all_constraints

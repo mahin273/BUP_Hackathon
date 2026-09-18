@@ -205,16 +205,16 @@ def validate_minimum_battery_reserve(directive: Dict, battery_capacity: float) -
         errors.append(f"Note {note_index} (minimum_battery_reserve): Missing structured_adjustment")
         return False, errors
     
-    # Check reserve_kwh
-    reserve = adjustment.get("reserve_kwh")
+    # Check minimum_energy_kwh (or legacy reserve_kwh)
+    reserve = adjustment.get("minimum_energy_kwh", adjustment.get("reserve_kwh"))
     if reserve is None:
-        errors.append(f"Note {note_index} (minimum_battery_reserve): Missing 'reserve_kwh'")
+        errors.append(f"Note {note_index} (minimum_battery_reserve): Missing 'minimum_energy_kwh'")
     elif not isinstance(reserve, (int, float)) or reserve < 0:
-        errors.append(f"Note {note_index} (minimum_battery_reserve): reserve_kwh must be >= 0, got {reserve}")
+        errors.append(f"Note {note_index} (minimum_battery_reserve): minimum_energy_kwh must be >= 0, got {reserve}")
     elif reserve > battery_capacity:
         errors.append(
             f"Note {note_index} (minimum_battery_reserve): "
-            f"reserve_kwh ({reserve}) exceeds battery capacity ({battery_capacity})"
+            f"minimum_energy_kwh ({reserve}) exceeds battery capacity ({battery_capacity})"
         )
     
     # Check hours
@@ -403,7 +403,7 @@ def validate_directive_enforcement(
     
     # Create hour plan lookup
     hour_plan_map = {h["hour"]: h for h in hourly_plan}
-    solar_map = {h["hour"]: h["solar_available_kwh"] for h in hours_data}
+    solar_map = {h["hour"]: h.get("solar_kwh", h.get("solar_available_kwh", 0.0)) for h in hours_data}
     
     for directive in directives:
         directive_type = directive.get("directive_type")
@@ -466,7 +466,7 @@ def validate_directive_enforcement(
             
             elif directive_type == "minimum_battery_reserve":
                 # Check that battery energy stays above reserve
-                reserve = adjustment.get("reserve_kwh", 0)
+                reserve = adjustment.get("minimum_energy_kwh", adjustment.get("reserve_kwh", 0))
                 actual_energy = hour_plan["battery_energy_after_kwh"]
                 
                 if actual_energy < reserve - tolerance:
