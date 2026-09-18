@@ -61,9 +61,9 @@ flowchart LR
 ```
 
 ### End-to-End Processing Stages:
-1. **Request Validation (`Pydantic v2`)**: Validates input structure, ensuring exactly 24 continuous hourly entries ($h \in [0, 23]$) and valid battery physical constants. Rejects malformed payloads with HTTP 400/422.
+1. **Request Validation (`Pydantic v2`)**: Validates input structure, ensuring exactly 24 continuous hourly entries (hours 0 through 23) and valid battery physical constants. Rejects malformed payloads with HTTP 400/422.
 2. **LLM Interpreter**: Transforms 1–3 unstructured operator strings into machine-verifiable directives using forced structured schema generation with strict timeout budgets.
-3. **Guardrail Sanitizer**: Validates LLM outputs against domain rules (e.g., verifying interval hours are ascending and in $0..23$, solar factor $\in [0, 1]$, non-negative grid bounds). Degrades malformed/hallucinated items to `no_op` without crashing.
+3. **Guardrail Sanitizer**: Validates LLM outputs against domain rules (e.g., verifying interval hours are ascending and in 0..23, solar factor between 0.0 and 1.0, non-negative grid bounds). Degrades malformed/hallucinated items to `no_op` without crashing.
 4. **Linear Programming Engine (`scipy.optimize.linprog`)**: Formulates and solves the multi-variable cost optimization model over the 24-hour horizon with exact HiGHS simplex/interior-point algorithms. Features an autonomous greedy heuristic fallback for 100% service availability.
 5. **Replay Engine**: Replays physical equations, re-sums grid quantities and electricity costs from rounded plan values, and guarantees battery neutrality before returning the response.
 
@@ -75,17 +75,17 @@ Each scenario includes 1 to 3 operator notes. The system classifies relevant ope
 
 | Directive Type | Purpose | Structured Adjustment Schema | Mathematical Effect on Solver |
 | :--- | :--- | :--- | :--- |
-| `solar_reduction` | Temporary degradation in solar yield (cleaning, shading) | `{"hours": [int...], "factor": number}` | $\text{Solar}_{\text{eff}}[h] = \text{Solar}_{\text{orig}}[h] \times \text{factor}$ |
-| `minimum_battery_reserve` | Emergency backup reserve floor | `{"hours": [int...], "minimum_energy_kwh": number}` | $E_{\text{battery}}[h] \ge \max(E_{\text{base\_min}}, E_{\text{directive\_min}})$ |
-| `no_charge_window` | Prohibits battery charging | `{"hours": [int...]}` | $\text{Charge}[h] = 0$ |
-| `no_discharge_window` | Prohibits battery discharging | `{"hours": [int...]}` | $\text{Discharge}[h] = 0$ |
-| `max_grid_window` | Substation peak-demand limitation | `{"hours": [int...], "max_grid_kwh": number}` | $\text{Grid}[h] \le \text{max\_grid\_kwh}$ |
+| `solar_reduction` | Temporary degradation in solar yield (cleaning, shading) | `{"hours": [int...], "factor": number}` | `effective_solar[h] = original_solar[h] * factor` |
+| `minimum_battery_reserve` | Emergency backup reserve floor | `{"hours": [int...], "minimum_energy_kwh": number}` | `battery_energy_after[h] >= max(base_min, directive_min)` |
+| `no_charge_window` | Prohibits battery charging | `{"hours": [int...]}` | `battery_charge_kwh[h] = 0` |
+| `no_discharge_window` | Prohibits battery discharging | `{"hours": [int...]}` | `battery_discharge_kwh[h] = 0` |
+| `max_grid_window` | Substation peak-demand limitation | `{"hours": [int...], "max_grid_kwh": number}` | `grid_kwh[h] <= max_grid_kwh` |
 | `no_op` | Irrelevant notice / distractor note | `null` | No modification to base model |
 
 > **Semantic Rules:**
 > - `applies = false` is strictly assigned **only** to `no_op` directives. All other valid directives require `applies = true`.
 > - Time intervals are zero-indexed half-open ranges: "1 PM to 3 PM" corresponds to hours `[13, 14]`.
-> - Hours must be returned as strictly unique, sorted ascending integers in $[0, 23]$.
+> - Hours must be returned as strictly unique, sorted ascending integers in `[0, 23]`.
 > - In `solar_reduction`, `factor` represents the **usable remaining fraction** (e.g., an "80% drop" corresponds to `factor: 0.20`).
 
 ---
@@ -95,28 +95,39 @@ Each scenario includes 1 to 3 operator notes. The system classifies relevant ope
 ### 1. Objective Function
 Minimize the total grid electricity expenditure over the 24-hour horizon:
 
-$$\min \quad \sum_{h=0}^{23} \left( \text{grid\_kwh}[h] \times \text{tariff\_bdt\_per\_kwh}[h] \right)$$
+$$\min \quad \sum_{h=0}^{23} \left( P_{\text{grid}}[h] \cdot T[h] \right)$$
+
+*In code terms:*
+$$\min \sum_{h=0}^{23} \left( \text{grid}[h] \times \text{tariff}[h] \right)$$
 
 ### 2. Hourly Energy Balance Equation
 For every hour $h \in \{0, \dots, 23\}$, energy balance must hold exactly:
 
-$$\text{grid\_kwh}[h] + \text{solar\_used\_kwh}[h] + \text{battery\_discharge\_kwh}[h] = \text{demand\_kwh}[h] + \text{battery\_charge\_kwh}[h]$$
+$$P_{\text{grid}}[h] + P_{\text{solar}}[h] + P_{\text{discharge}}[h] = P_{\text{demand}}[h] + P_{\text{charge}}[h]$$
+
+```text
+grid_kwh[h] + solar_used_kwh[h] + battery_discharge_kwh[h] = demand_kwh[h] + battery_charge_kwh[h]
+```
 
 ### 3. Solar Utilization & Curtailment
 Grid export is disabled. Excess solar beyond campus demand and available battery charge rate is curtailed:
 
-$$0 \le \text{solar\_used\_kwh}[h] \le \text{effective\_solar\_kwh}[h]$$
+$$0 \le P_{\text{solar}}[h] \le P_{\text{solar,eff}}[h]$$
+
+```text
+0 <= solar_used_kwh[h] <= effective_solar_kwh[h]
+```
 
 ### 4. Battery State-of-Charge Dynamics
-Let $E[h]$ denote the stored energy after hour $h$:
+Let $E[h]$ denote the stored battery energy at the end of hour $h$:
 
-$$E[h] = E[h-1] + \text{battery\_charge\_kwh}[h] - \text{battery\_discharge\_kwh}[h] \quad (\text{with } E[-1] = E_{\text{initial}})$$
+$$E[h] = E[h-1] + P_{\text{charge}}[h] - P_{\text{discharge}}[h] \quad (E[-1] = E_{\text{initial}})$$
 
-Subject to physical constraints:
-- **Energy Limits:** $\max(E_{\text{min}}, E_{\text{reserve}}[h]) \le E[h] \le \text{Capacity}$
+Subject to physical bounds:
+- **Energy Limits:** $\max(E_{\text{min}}, E_{\text{reserve}}[h]) \le E[h] \le E_{\text{capacity}}$
 - **Throughput Limits:**  
-  $0 \le \text{battery\_charge\_kwh}[h] \le \text{MaxChargeRate}$  
-  $0 \le \text{battery\_discharge\_kwh}[h] \le \text{MaxDischargeRate}$
+  $0 \le P_{\text{charge}}[h] \le P_{\text{charge,max}}$  
+  $0 \le P_{\text{discharge}}[h] \le P_{\text{discharge,max}}$
 - **Action Mutual Exclusivity:** Battery cannot charge and discharge simultaneously; action is strictly one of `charge`, `discharge`, or `idle`. If `idle`, magnitude must equal `0.0`.
 - **End-of-Day Neutrality:** The battery cannot be depleted as a one-time subsidy:
   $$E[23] = E_{\text{initial}}$$
@@ -130,14 +141,14 @@ To withstand unannounced judge stress tests and edge cases, GridWise implements 
 1. **LLM Hallucination Suppression:**
    - Any unlisted directive type is caught by the guardrail validator and normalized to `no_op`.
    - Missing or duplicate `note_index` items are re-indexed and backfilled with neutral fallbacks.
-   - Out-of-bounds parameters (e.g., negative reserves, factors $> 1.0$) are clamped or demoted to `no_op`.
+   - Out-of-bounds parameters (e.g., negative reserves, factors > 1.0) are clamped or demoted to `no_op`.
 2. **Execution Timeout & Fallback:**
    - LLM calls are bounded by strict HTTP client timeouts. If the AI provider is slow, exhausted, or unreachable, notes seamlessly fall back to deterministic regex / `no_op` rather than failing the request.
 3. **High-Precision SciPy Solver:**
    - Leveraging `scipy.optimize.linprog(method="highs")` ensures fast, reliable LP solutions without floating-point artifacts.
    - If the linear solver ever fails or encounters an infeasible boundary, a greedy heuristic fallback (charging during lowest tariff hours, discharging during peak pricing) ensures a valid schedule is always returned.
 4. **Precision Consistency:**
-   - Values are rounded to 2 decimal places ($0.01\text{ kWh} / \text{BDT}$ tolerance). Aggregate summaries (`total_cost_bdt`, `total_grid_kwh`, `peak_grid_kwh`) are re-calculated directly from the final rounded plan to eliminate floating-point discrepancy.
+   - Values are rounded to 2 decimal places (0.01 kWh / 0.01 BDT tolerance). Aggregate summaries (`total_cost_bdt`, `total_grid_kwh`, `peak_grid_kwh`) are re-calculated directly from the final rounded plan to eliminate floating-point discrepancy.
 
 ---
 
@@ -273,7 +284,7 @@ Primary scheduling endpoint.
 ## 🚀 Getting Started & Local Setup
 
 ### 1. Prerequisites
-- Python $\ge$ 3.11
+- Python >= 3.11
 - pip
 
 ### 2. Installation
@@ -318,8 +329,8 @@ pytest -v
 ```
 
 **Automated Replay Checks:**
-- [x] Full energy balance satisfaction across all 24 hours ($\pm 0.01\text{ kWh}$)
-- [x] Exact battery end-of-day neutrality ($E[23] == E_{\text{initial}}$)
+- [x] Full energy balance satisfaction across all 24 hours (±0.01 kWh)
+- [x] Exact battery end-of-day neutrality (`E[23] == initial_energy_kwh`)
 - [x] Strict adherence to battery rate limits and minimum state-of-charge bounds
 - [x] Solar utilization never exceeding effective adjusted solar capacity
 - [x] Verified zero battery throughput during `idle` status
